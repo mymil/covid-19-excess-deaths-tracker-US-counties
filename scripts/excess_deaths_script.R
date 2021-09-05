@@ -93,6 +93,7 @@ tunisia_weekly_deaths <- fread("output-data/historical-deaths/tunisia_weekly_dea
 turkey_weekly_deaths <- fread("output-data/historical-deaths/turkey_weekly_deaths.csv")
 ukraine_monthly_deaths <- fread("output-data/historical-deaths/ukraine_monthly_deaths.csv")
 united_states_weekly_deaths <- fread("output-data/historical-deaths/united_states_weekly_deaths.csv")
+united_states_county_quarterly_deaths <- fread("output-data/historical-deaths/united_states_county_quarterly_deaths.csv")
 uruguay_monthly_deaths <- fread("output-data/historical-deaths/uruguay_monthly_deaths.csv")
 uzbekistan_monthly_deaths <- fread("output-data/historical-deaths/uzbekistan_monthly_deaths.csv")
 
@@ -620,6 +621,11 @@ write.csv(ukraine_results[[2]],"output-data/excess-deaths/ukraine_excess_deaths.
 # Export the United States
 united_states_results <- get_excess_deaths(united_states_weekly_deaths,"none","weekly",calculate=FALSE,train_model=FALSE)
 write.csv(united_states_results[[2]],"output-data/excess-deaths/united_states_excess_deaths.csv",fileEncoding = "UTF-8",row.names=FALSE)
+
+# Export the United States county quarterly
+united_states_county_quarterly_results <- get_excess_deaths(united_states_county_quarterly_deaths,united_states_expected_county_quarterly_deaths_model,"quarterly",calculate=TRUE,train_model=TRUE)
+saveRDS(united_states_county_quarterly_results[[1]],"output-data/expected-deaths-models/united_states_county_quarterly_results.RDS")
+write.csv(united_states_county_quarterly_results[[2]],"output-data/excess-deaths/united_states_county_quarterly_results.csv",fileEncoding = "UTF-8",row.names=FALSE)
 
 # Export Uruguay
 uruguay_results <- get_excess_deaths(uruguay_monthly_deaths,uruguay_expected_deaths_model,"monthly",calculate=TRUE,train_model=TRUE)

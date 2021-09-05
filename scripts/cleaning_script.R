@@ -3463,7 +3463,7 @@ write.csv(ukraine_monthly_deaths %>%
           fileEncoding = "UTF-8",
           row.names=FALSE)
 
-# Step 82: import and clean the United States' data ---------------------------------------
+# Step 82a: import and clean the United States' data ---------------------------------------
 
 # Import the United States' data
 united_states_states <- fread("source-data/united-states/united_states_states.csv")
@@ -3538,7 +3538,97 @@ write.csv(united_states_weekly_deaths %>%
           fileEncoding = "UTF-8",
           row.names=FALSE)
 
-# Step 82: import and clean Uruguay's data ---------------------------------------
+# Step 82b: import and clean the United States' county-level data ---------------------------------------
+
+# Import the United States' data
+united_states_county_monthly_total_deaths <- list.files(
+  "source-data/united-states/",
+  pattern = "*.txt",
+  full.names = TRUE
+  ) %>% 
+  fread()
+
+united_states_county_quarterly_covid_deaths <- fread("https://data.cdc.gov/api/views/ypxr-mz8e/rows.csv")
+
+united_states_county_yearly_population <- tidycensus::get_estimates(
+  geography = "county",
+  product = "population",
+  year = 2019,
+  time_series = TRUE,
+  key = Sys.getenv("CENSUS_API_KEY")
+) 
+  
+
+# Format United States' yearly county population data
+united_states_county_yearly_population_formatted <- united_states_county_yearly_population %>% 
+  transmute(
+    country = "United States",
+    region = "County",
+    region_code = GEOID,
+    year = as.integer(2009 + DATE),
+    population = as.integer(value)
+  )
+
+# Group United States' total deaths by quarter
+united_states_county_quarterly_total_deaths <- united_states_county_monthly_total_deaths %>% 
+  mutate(
+    country = "United States",
+    region = "County",
+    region_code = str_pad(`County Code`, 5, side = "left", pad = "0"),
+    year = Year,
+    quarter = quarter(ym(`Month Code`)),
+    start_date = yq(paste(year, quarter, sep = "-")),
+    end_date = ceiling_date(start_date + months(2), unit="month") - 1,
+    days = end_date - start_date + 1,
+    total_deaths = as.integer(Deaths)
+  ) %>% 
+  group_by(
+    country, region, region_code, year, quarter, start_date, end_date, days
+  ) %>% 
+  summarise(
+    total_deaths = sum(total_deaths, na.rm = TRUE)
+  ) %>% 
+  ungroup() %>% 
+  dplyr::select(country,region,region_code,start_date,end_date,days,year,quarter,total_deaths) %>% 
+  tidylog::left_join(united_states_county_yearly_population_formatted)
+
+# note: some counties from AK, SD, and VA are not represented in the census population estimates, primarily due to changes in counties
+
+# Group United States' total deaths by county and quarter
+united_states_county_quarterly_covid_deaths <- united_states_county_quarterly_covid_deaths %>% 
+  transmute(
+    country = "United States",
+    region = "County",
+    region_code = str_pad(`FIPS Code`, 5, side = "left", pad = "0"),
+    year = Year,
+    quarter = Quarter,
+    start_date = mdy(`Start Date`),
+    end_date = mdy(`End Date`),
+    days = end_date - start_date + 1,
+    total_deaths = as.integer(`Total Deaths`),
+    covid_deaths = as.integer(`COVID-19 Deaths`)
+  ) %>% 
+  tidylog::left_join(united_states_county_yearly_population_formatted)
+  
+# Union quarterly total deaths and quarterly covid deaths together
+united_states_county_quarterly_deaths <- united_states_county_quarterly_total_deaths %>%
+  bind_rows(united_states_county_quarterly_county_covid_deaths) %>% 
+  mutate(covid_deaths = replace_na(covid_deaths,0),
+         expected_deaths = "TBC") %>% # To be calculated
+  ungroup() %>%
+  dplyr::select(country,region,region_code,start_date,end_date,days,year,quarter,
+                population,total_deaths,covid_deaths,expected_deaths) %>%
+  drop_na()
+
+# Export as CSV
+write.csv(united_states_county_quarterly_deaths %>%
+            mutate(start_date = format(start_date, "%Y-%m-%d"),
+                   end_date = format(end_date, "%Y-%m-%d")),
+          "output-data/historical-deaths/united_states_county_quarterly_deaths.csv",
+          fileEncoding = "UTF-8",
+          row.names=FALSE)
+
+# Step 83: import and clean Uruguay's data ---------------------------------------
 
 # Import and group Uruguay's total deaths by month
 uruguay_monthly_total_deaths <- world_mortality_dataset %>%
