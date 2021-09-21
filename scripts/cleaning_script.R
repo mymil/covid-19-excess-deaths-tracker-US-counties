@@ -3546,9 +3546,18 @@ united_states_county_monthly_total_deaths <- list.files(
   pattern = "*.txt",
   full.names = TRUE
   ) %>% 
-  fread()
+  map_dfr(
+    ~ fread(.x,
+      na.strings = c("Missing", "Suppressed", "Not Applicable"),
+      keepLeadingZeros = TRUE,
+      colClasses = c("character")
+    )
+  )
 
-united_states_county_quarterly_covid_deaths <- fread("https://data.cdc.gov/api/views/ypxr-mz8e/rows.csv")
+united_states_county_quarterly_covid_deaths <- fread(
+  "https://data.cdc.gov/api/views/ypxr-mz8e/rows.csv",
+  keepLeadingZeros = TRUE
+)
 
 united_states_county_yearly_population <- tidycensus::get_estimates(
   geography = "county",
@@ -3560,11 +3569,16 @@ united_states_county_yearly_population <- tidycensus::get_estimates(
   
 
 # Format United States' yearly county population data
+# Two counties changed
 united_states_county_yearly_population_formatted <- united_states_county_yearly_population %>% 
+  filter(variable == "POP") %>% 
   transmute(
     country = "United States",
-    region = "County",
-    region_code = GEOID,
+    region = case_when(
+      GEOID == "02158" ~ "02270",
+      GEOID == "46102" ~ "46113",
+      TRUE ~ GEOID),
+    region_code = region,
     year = as.integer(2009 + DATE),
     population = as.integer(value)
   )
@@ -3573,13 +3587,13 @@ united_states_county_yearly_population_formatted <- united_states_county_yearly_
 united_states_county_quarterly_total_deaths <- united_states_county_monthly_total_deaths %>% 
   mutate(
     country = "United States",
-    region = "County",
-    region_code = str_pad(`County Code`, 5, side = "left", pad = "0"),
-    year = Year,
+    region = `County Code`,
+    region_code = region,
+    year = as.integer(Year),
     quarter = quarter(ym(`Month Code`)),
     start_date = yq(paste(year, quarter, sep = "-")),
     end_date = ceiling_date(start_date + months(2), unit="month") - 1,
-    days = end_date - start_date + 1,
+    days = as.integer(end_date - start_date + 1),
     total_deaths = as.integer(Deaths)
   ) %>% 
   group_by(
@@ -3590,35 +3604,44 @@ united_states_county_quarterly_total_deaths <- united_states_county_monthly_tota
   ) %>% 
   ungroup() %>% 
   dplyr::select(country,region,region_code,start_date,end_date,days,year,quarter,total_deaths) %>% 
-  tidylog::left_join(united_states_county_yearly_population_formatted)
+  tidylog::left_join(
+    united_states_county_yearly_population_formatted,
+    by = c("country", "region", "region_code", "year")
+  )
 
-# note: some counties from AK, SD, and VA are not represented in the census population estimates, primarily due to changes in counties
-
-# Group United States' total deaths by county and quarter
-united_states_county_quarterly_covid_deaths <- united_states_county_quarterly_covid_deaths %>% 
+# Group United States' COVID deaths by county and quarter
+united_states_county_quarterly_covid_deaths_clean <- united_states_county_quarterly_covid_deaths %>% 
+  filter(`Age Group` %in% c("65 years and over", "<65 years")) %>% 
   transmute(
     country = "United States",
-    region = "County",
-    region_code = str_pad(`FIPS Code`, 5, side = "left", pad = "0"),
+    region = `FIPS Code`,
+    region_code = region,
     year = Year,
     quarter = Quarter,
     start_date = mdy(`Start Date`),
     end_date = mdy(`End Date`),
-    days = end_date - start_date + 1,
+    days = as.integer(end_date - start_date + 1),
     total_deaths = as.integer(`Total Deaths`),
-    covid_deaths = as.integer(`COVID-19 Deaths`)
+    covid_deaths = as.integer(`COVID-19 Deaths`),
+    covid_deaths = replace_na(covid_deaths, 0)
   ) %>% 
-  tidylog::left_join(united_states_county_yearly_population_formatted)
+  group_by(country, region, region_code, year, quarter, start_date, end_date, days) %>% 
+  summarise(across(c(total_deaths, covid_deaths), sum)) %>% 
+  ungroup() %>% 
+  tidylog::left_join(
+    united_states_county_yearly_population_formatted,
+    by = c("country", "region", "region_code", "year")
+  )
   
 # Union quarterly total deaths and quarterly covid deaths together
 united_states_county_quarterly_deaths <- united_states_county_quarterly_total_deaths %>%
-  bind_rows(united_states_county_quarterly_county_covid_deaths) %>% 
-  mutate(covid_deaths = replace_na(covid_deaths,0),
-         expected_deaths = "TBC") %>% # To be calculated
-  ungroup() %>%
+  bind_rows(united_states_county_quarterly_covid_deaths_clean) %>% 
+  mutate(
+    expected_deaths = "TBC" # To be calculated
+  ) %>%
   dplyr::select(country,region,region_code,start_date,end_date,days,year,quarter,
                 population,total_deaths,covid_deaths,expected_deaths) %>%
-  drop_na()
+  filter(!is.na(total_deaths))
 
 # Export as CSV
 write.csv(united_states_county_quarterly_deaths %>%

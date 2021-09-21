@@ -623,7 +623,13 @@ united_states_results <- get_excess_deaths(united_states_weekly_deaths,"none","w
 write.csv(united_states_results[[2]],"output-data/excess-deaths/united_states_excess_deaths.csv",fileEncoding = "UTF-8",row.names=FALSE)
 
 # Export the United States county quarterly
-united_states_county_quarterly_results <- get_excess_deaths(united_states_county_quarterly_deaths,united_states_expected_county_quarterly_deaths_model,"quarterly",calculate=TRUE,train_model=TRUE)
+united_states_county_quarterly_results <- get_excess_deaths(
+  df = united_states_county_quarterly_deaths, 
+  expected_deaths_model = united_states_expected_county_quarterly_deaths_model,
+  frequency = "quarterly",
+  calculate = TRUE,
+  train_model = TRUE
+  )
 saveRDS(united_states_county_quarterly_results[[1]],"output-data/expected-deaths-models/united_states_county_quarterly_results.RDS")
 write.csv(united_states_county_quarterly_results[[2]],"output-data/excess-deaths/united_states_county_quarterly_results.csv",fileEncoding = "UTF-8",row.names=FALSE)
 
