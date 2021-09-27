@@ -25,3 +25,5 @@ United States,Total deaths,Weekly,Data from Centers for Disease Control and Prev
 United States,Covid-19 deaths,Daily,"Data from Centers for Disease Control and Prevention, via USA Facts",https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_deaths_usafacts.csv
 United States,Covid-19 deaths,Daily,New York City data from NYC Department of Health and Mental Hygiene,https://github.com/nychealth/coronavirus-data/blob/master/Deaths/probable-confirmed-dod.csv
 United States (counties),Total deaths (historical),Monthly,Data from Centers for Disease Control and Prevention WONDER,https://wonder.cdc.gov/ucd-icd10.html
+United States (counties),Covid-19 deaths,Quarterly,Data from CDC provisional COVID-19 deaths,https://data.cdc.gov/NCHS/AH-Provisional-COVID-19-Deaths-by-Quarter-County-a/ypxr-mz8e
+United States (counties),Total deaths,Quarterly,Data from CDC provisional COVID-19 deaths,https://data.cdc.gov/NCHS/AH-Provisional-COVID-19-Deaths-by-Quarter-County-a/ypxr-mz8e

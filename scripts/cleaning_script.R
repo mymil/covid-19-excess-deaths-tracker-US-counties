@@ -2,6 +2,7 @@
 
 # Import libraries
 library(tidyverse)
+library(tidycensus)
 library(readxl)
 library(data.table)
 library(lubridate)
@@ -3567,6 +3568,9 @@ united_states_county_yearly_population <- tidycensus::get_estimates(
   key = Sys.getenv("CENSUS_API_KEY")
 ) 
   
+data(fips_codes)
+
+states_50 <- (fips_codes %>% distinct(state, state_code))[1:51,]
 
 # Format United States' yearly county population data
 # Two counties changed
@@ -3594,7 +3598,8 @@ united_states_county_quarterly_total_deaths <- united_states_county_monthly_tota
     start_date = yq(paste(year, quarter, sep = "-")),
     end_date = ceiling_date(start_date + months(2), unit="month") - 1,
     days = as.integer(end_date - start_date + 1),
-    total_deaths = as.integer(Deaths)
+    total_deaths = as.integer(Deaths),
+    total_deaths = replace_na(total_deaths, 0)
   ) %>% 
   group_by(
     country, region, region_code, year, quarter, start_date, end_date, days
@@ -3603,11 +3608,7 @@ united_states_county_quarterly_total_deaths <- united_states_county_monthly_tota
     total_deaths = sum(total_deaths, na.rm = TRUE)
   ) %>% 
   ungroup() %>% 
-  dplyr::select(country,region,region_code,start_date,end_date,days,year,quarter,total_deaths) %>% 
-  tidylog::left_join(
-    united_states_county_yearly_population_formatted,
-    by = c("country", "region", "region_code", "year")
-  )
+  dplyr::select(country,region,region_code,start_date,end_date,days,year,quarter,total_deaths)
 
 # Group United States' COVID deaths by county and quarter
 united_states_county_quarterly_covid_deaths_clean <- united_states_county_quarterly_covid_deaths %>% 
@@ -3623,19 +3624,22 @@ united_states_county_quarterly_covid_deaths_clean <- united_states_county_quarte
     days = as.integer(end_date - start_date + 1),
     total_deaths = as.integer(`Total Deaths`),
     covid_deaths = as.integer(`COVID-19 Deaths`),
-    covid_deaths = replace_na(covid_deaths, 0)
+    across(c(total_deaths, covid_deaths), replace_na, 0)
+    # covid_deaths = replace_na(covid_deaths, 0)
   ) %>% 
   group_by(country, region, region_code, year, quarter, start_date, end_date, days) %>% 
   summarise(across(c(total_deaths, covid_deaths), sum)) %>% 
-  ungroup() %>% 
-  tidylog::left_join(
-    united_states_county_yearly_population_formatted,
-    by = c("country", "region", "region_code", "year")
-  )
+  ungroup()
   
 # Union quarterly total deaths and quarterly covid deaths together
 united_states_county_quarterly_deaths <- united_states_county_quarterly_total_deaths %>%
   bind_rows(united_states_county_quarterly_covid_deaths_clean) %>% 
+  mutate(state_code = str_sub(region_code, end = 2)) %>% 
+  tidylog::semi_join(states_50, by = "state_code") %>% 
+  tidylog::left_join(
+    united_states_county_yearly_population_formatted,
+    by = c("country", "region", "region_code", "year")
+  ) %>% 
   mutate(
     expected_deaths = "TBC" # To be calculated
   ) %>%

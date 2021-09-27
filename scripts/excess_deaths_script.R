@@ -93,7 +93,7 @@ tunisia_weekly_deaths <- fread("output-data/historical-deaths/tunisia_weekly_dea
 turkey_weekly_deaths <- fread("output-data/historical-deaths/turkey_weekly_deaths.csv")
 ukraine_monthly_deaths <- fread("output-data/historical-deaths/ukraine_monthly_deaths.csv")
 united_states_weekly_deaths <- fread("output-data/historical-deaths/united_states_weekly_deaths.csv")
-united_states_county_quarterly_deaths <- fread("output-data/historical-deaths/united_states_county_quarterly_deaths.csv")
+united_states_county_quarterly_deaths <- fread("output-data/historical-deaths/united_states_county_quarterly_deaths.csv", keepLeadingZeros = TRUE)
 uruguay_monthly_deaths <- fread("output-data/historical-deaths/uruguay_monthly_deaths.csv")
 uzbekistan_monthly_deaths <- fread("output-data/historical-deaths/uzbekistan_monthly_deaths.csv")
 
@@ -108,7 +108,7 @@ get_excess_deaths <- function(df,expected_deaths_model,frequency="weekly",calcul
   monthly_formula <- as.formula(total_deaths_per_day ~ year + month)
   monthly_regional_formula <- as.formula(total_deaths_per_day ~ year + month + region + region:year + region:month)
   quarterly_formula <- as.formula(total_deaths_per_day ~ year + quarter)
-  quarterly_regional_formula <- as.formula(total_deaths_per_day ~ year + quarter + region + region:year + region:quarter)
+  quarterly_regional_formula <- as.formula(total_deaths_per_day ~ -1 + year + quarter + (1 | region))
   df_regions <- length(unique(df$region))
   
   # Convert weeks and months into fixed effects
@@ -169,7 +169,7 @@ get_excess_deaths <- function(df,expected_deaths_model,frequency="weekly",calcul
     train_df <- df %>% 
       filter(end_date < as.Date("2020-03-01")) %>%
       mutate(total_deaths_per_day = total_deaths / days)
-    expected_deaths_model <- lm(expected_deaths_formula,train_df)
+    expected_deaths_model <- lmer(expected_deaths_formula,train_df)
     expected_deaths <- df %>% filter(year >= 2020) %>%
       mutate(expected_deaths = predict(expected_deaths_model,newdata=.) * days)
     
@@ -622,7 +622,7 @@ write.csv(ukraine_results[[2]],"output-data/excess-deaths/ukraine_excess_deaths.
 united_states_results <- get_excess_deaths(united_states_weekly_deaths,"none","weekly",calculate=FALSE,train_model=FALSE)
 write.csv(united_states_results[[2]],"output-data/excess-deaths/united_states_excess_deaths.csv",fileEncoding = "UTF-8",row.names=FALSE)
 
-# Export the United States county quarterly
+# Export the United States county quarterly #### 
 united_states_county_quarterly_results <- get_excess_deaths(
   df = united_states_county_quarterly_deaths, 
   expected_deaths_model = united_states_expected_county_quarterly_deaths_model,
