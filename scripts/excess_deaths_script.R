@@ -5,6 +5,7 @@ library(tidyverse)
 library(readxl)
 library(data.table)
 library(lubridate)
+library(lme4)
 options(scipen=999)
 
 # Import data
@@ -169,7 +170,7 @@ get_excess_deaths <- function(df,expected_deaths_model,frequency="weekly",calcul
     train_df <- df %>% 
       filter(end_date < as.Date("2020-03-01")) %>%
       mutate(total_deaths_per_day = total_deaths / days)
-    expected_deaths_model <- lmer(expected_deaths_formula,train_df)
+    expected_deaths_model <- lmer(expected_deaths_formula,train_df,REML = FALSE)
     expected_deaths <- df %>% filter(year >= 2020) %>%
       mutate(expected_deaths = predict(expected_deaths_model,newdata=.) * days)
     
